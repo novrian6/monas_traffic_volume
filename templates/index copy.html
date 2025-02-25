@@ -13,8 +13,11 @@
             padding: 20px;
             background-color: #f5f5f5;
         }
-        h1, h2, h3 {
+        h1 {
             color: #333;
+        }
+        h2 {
+            color: #444;
         }
         .container {
             max-width: 900px;
@@ -68,22 +71,6 @@
         {% else %}
             <p>No historical data available</p>
         {% endif %}
-
-        <div class="chart-container">
-            <h2>Simulated Traffic Volume vs Speed</h2>
-            <p>The volume is calculated using the **Logistic Model** formulated by **Pierre François Verhulst**.</p>
-
-             <p>The traffic density is calculated using the following equation:</p>
-            <img src="{{ url_for('static', filename='formula.png') }}" alt="Logistic Model Formula">
-            
-            <p>
-                <h2>Traffic Simulation (Logistic Model)</h2>
-                {% if simulation_plot %}
-                    <img src="data:image/png;base64,{{ simulation_plot }}" alt="Traffic Simulation">
-                {% else %}
-                    <p>No simulation data available</p>
-                {% endif %}
-        </div>
     </div>
 </body>
 </html>

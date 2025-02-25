@@ -12,7 +12,6 @@ import io
 import base64
 import threading
 import time
-import matplotlib.dates as mdates
 
 app = Flask(__name__, static_url_path='/static')
 
@@ -33,14 +32,14 @@ LOCATION_LABELS = {
     (-6.1735, 106.8279): "Medan Merdeka Utara"
 }
 
-K_JAM = 150  # Maximum traffic density
-V_CRITICAL = 30  # Critical speed threshold
-ALPHA = 0.1  # Logistic function factor
+K_JAM = 150
+V_CRITICAL = 30
+ALPHA = 0.1
 
 traffic_data = pd.DataFrame(columns=["Time", "Location", "Traffic Volume"])
 
 def fetch_traffic_data():
-    """Fetches real-time traffic data every minute."""
+    """Fetches traffic data every minute."""
     global traffic_data
 
     while True:
@@ -77,25 +76,19 @@ def plot_current_traffic():
     if traffic_data.empty:
         return None
 
-    # Ensure Time column is in datetime format
-    traffic_data["Time"] = pd.to_datetime(traffic_data["Time"])
-
-    # Get the latest timestamp
+    traffic_data["Time"] = traffic_data["Time"].astype(str)
     latest_time = traffic_data["Time"].max()
-
-    # Filter latest traffic data
     latest_data = traffic_data[traffic_data["Time"] == latest_time]
 
     plt.figure(figsize=(10, 5))
     ax = sns.barplot(x="Location", y="Traffic Volume", data=latest_data, palette="coolwarm")
 
-    # Add bar labels inside the bars
     for bar, row in zip(ax.patches, latest_data.itertuples(index=False)):
         height = bar.get_height()
         ax.text(
             bar.get_x() + bar.get_width() / 2,
-            height * 0.5,  # Center text in the bar
-            f"{row._2:.0f}",  # Correct column reference using positional index
+            height * 0.5,
+            f"{row._2:.0f}",
             ha='center', va='center', color='white', fontsize=12, fontweight='bold'
         )
 
@@ -117,10 +110,7 @@ def plot_historical_traffic():
     if traffic_data.empty:
         return None
 
-    # Convert Time column to datetime format
     traffic_data["Time"] = pd.to_datetime(traffic_data["Time"])
-    traffic_data.sort_values("Time", inplace=True)  # Ensure sorting works correctly
-
     plt.figure(figsize=(12, 6))
 
     try:
@@ -130,12 +120,7 @@ def plot_historical_traffic():
         plt.title("Traffic Volume Over Time")
         plt.xlabel("Time (Jakarta WIB)")
         plt.ylabel("Traffic Volume (vehicles/hour)")
-
-        # Format x-axis with "dd-MMM-yy hh:mm"
-        plt.gca().xaxis.set_major_formatter(mdates.DateFormatter("%d-%b-%y %H:%M"))
-        plt.gca().xaxis.set_major_locator(mdates.AutoDateLocator())
-
-        plt.xticks(rotation=45, ha="right")  # Rotate for better readability
+        plt.xticks(rotation=45, ha="right", fontsize=10)
         plt.grid(True, linestyle="--", alpha=0.5)
         plt.tight_layout()
     except ValueError:
@@ -148,18 +133,18 @@ def plot_historical_traffic():
     plt.close()
     return plot_url
 
-def plot_logistic_simulation():
-    """Simulates traffic using the logistic model."""
-    speeds = np.linspace(0, 100, 100)
-    densities = K_JAM / (1 + np.exp(ALPHA * (speeds - V_CRITICAL)))
-    volumes = densities * speeds
+def simulate_traffic_logistic_model():
+    """Simulates traffic volume using the logistic model."""
+    speeds = np.linspace(0, 100, 100)  # Speed from 0 to 100 km/h
+    densities = K_JAM / (1 + np.exp(ALPHA * (speeds - V_CRITICAL)))  # Density using logistic model
+    volumes = densities * speeds  # Traffic volume (flow)
 
-    plt.figure(figsize=(8, 5))
-    plt.plot(speeds, volumes, label="Traffic Volume", color="blue")
-    plt.axvline(V_CRITICAL, linestyle="--", color="red", label="Critical Speed")
-    plt.title("Traffic Volume Simulation (Logistic Model)")
+    plt.figure(figsize=(10, 5))
+    plt.plot(speeds, volumes, label="Traffic Volume", color="b")
+    plt.axvline(V_CRITICAL, linestyle="--", color="r", label=f"Critical Speed ({V_CRITICAL} km/h)")
     plt.xlabel("Speed (km/h)")
     plt.ylabel("Traffic Volume (vehicles/hour)")
+    plt.title("Traffic Volume vs Speed using Logistic Model")
     plt.legend()
     plt.grid(True)
 
@@ -172,11 +157,11 @@ def plot_logistic_simulation():
 
 @app.route('/')
 def index():
-    """Renders the dashboard with traffic charts."""
-    return render_template("index.html",
-                           current_plot=plot_current_traffic(),
-                           historical_plot=plot_historical_traffic(),
-                           simulation_plot=plot_logistic_simulation())
+    """Displays the dashboard with updated traffic charts."""
+    current_plot = plot_current_traffic()
+    historical_plot = plot_historical_traffic()
+    simulation_plot = simulate_traffic_logistic_model()
+    return render_template("index.html", current_plot=current_plot, historical_plot=historical_plot, simulation_plot=simulation_plot)
 
 @app.route('/data')
 def get_data():
