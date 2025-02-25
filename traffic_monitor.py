@@ -111,12 +111,16 @@ def plot_current_traffic():
     plt.close()
     return plot_url
 
+import matplotlib.dates as mdates
+
 def plot_historical_traffic():
     """Generates line chart for traffic over time with date & time on x-axis."""
     if traffic_data.empty:
         return None
 
-    traffic_data["Time"] = pd.to_datetime(traffic_data["Time"])
+    traffic_data["Time"] = pd.to_datetime(traffic_data["Time"])  # Ensure datetime format
+    traffic_data.sort_values("Time", inplace=True)  # Sort for proper plotting
+
     plt.figure(figsize=(12, 6))
 
     try:
@@ -126,11 +130,23 @@ def plot_historical_traffic():
         plt.title("Traffic Volume Over Time")
         plt.xlabel("Time (Jakarta WIB)")
         plt.ylabel("Traffic Volume (vehicles/hour)")
-        plt.xticks(rotation=45, ha="right")
+        
+        # Format x-axis with "dd-MMM-yy hh:mm"
+        plt.gca().xaxis.set_major_formatter(mdates.DateFormatter("%d-%b-%y %H:%M"))
+        plt.gca().xaxis.set_major_locator(mdates.AutoDateLocator())
+
+        plt.xticks(rotation=45, ha="right")  # Rotate for better readability
         plt.grid(True, linestyle="--", alpha=0.5)
         plt.tight_layout()
     except ValueError:
         return None
+
+    img = io.BytesIO()
+    plt.savefig(img, format='png', bbox_inches="tight")
+    img.seek(0)
+    plot_url = base64.b64encode(img.getvalue()).decode()
+    plt.close()
+    return plot_url
 
     img = io.BytesIO()
     plt.savefig(img, format='png', bbox_inches="tight")
