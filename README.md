@@ -2,7 +2,7 @@ This project fetches real-time traffic speed from TomTom API every minute and re
 The traffic volume is then calculated using the logistic function as shown in the formula below:
 
 
-k = \frac{K_j}{1 + e^{\alpha (v - v_c)}}
+k = K_j/ (1 + e^{alpha * (v - v_c)}}
 
 
 where:
@@ -11,7 +11,12 @@ where:
 	•	 \alpha  = 0.1 (shape parameter)
 	•	 v  = real-time speed from TomTom API
 	•	 k  = traffic density (vehicles per km)
-	•	Traffic volume is calculated as  k \times v  (density × speed).
+	•	Traffic volume is calculated as  k \times v  (density × speed)
+ 
+ Why Use This Formula?
+	•	Captures congestion effects: At low speeds, density increases exponentially.
+	•	Smooth transition: It avoids unrealistic sharp transitions between free flow and congestion.
+	•	More accurate for urban roads: Compared to simple linear models, this function better models real-world conditions.
 
 Features
 
@@ -21,7 +26,7 @@ Features
 ✅ Displays bar chart (histogram) for the current traffic volume.
 ✅ Displays line chart for historical traffic trends.
 
-How It Works
+The application steps:
 	1.	The script queries TomTom API every 1 minute for speed data from multiple locations.
 	2.	It calculates the traffic volume based on speed and jam density.
 	3.	The data is saved to a CSV file for future analysis.
