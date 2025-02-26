@@ -15,7 +15,7 @@ import time
 
 app = Flask(__name__, static_url_path='/static')
 
-API_KEY = "DZoGAkP2sIlAAqfeEltC1WfA2t441WZX"
+API_KEY = "eqNlTGMo0TDbaGDLJezgMF7kBE177FpC" ##KEy 2: eqNlTGMo0TDbaGDLJezgMF7kBE177FpC Key3: DZoGAkP2sIlAAqfeEltC1WfA2t441WZX
 BASE_URL = "https://api.tomtom.com/traffic/services/4/flowSegmentData/absolute/10/json"
 
 LOCATIONS = [
@@ -106,11 +106,12 @@ def plot_current_traffic():
     return plot_url
 
 def plot_historical_traffic():
-    """Generates line chart for traffic over time with date & time on x-axis."""
+    """Generates line chart for traffic over time with formatted X-axis."""
     if traffic_data.empty:
         return None
 
     traffic_data["Time"] = pd.to_datetime(traffic_data["Time"])
+
     plt.figure(figsize=(12, 6))
 
     try:
@@ -121,6 +122,10 @@ def plot_historical_traffic():
         plt.xlabel("Time (Jakarta WIB)")
         plt.ylabel("Traffic Volume (vehicles/hour)")
         plt.xticks(rotation=45, ha="right", fontsize=10)
+
+        # Format X-axis labels as dd:MMM:yy hh:mm
+        plt.gca().xaxis.set_major_formatter(plt.matplotlib.dates.DateFormatter('%d:%b:%y %H:%M'))
+
         plt.grid(True, linestyle="--", alpha=0.5)
         plt.tight_layout()
     except ValueError:
