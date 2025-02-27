@@ -12,10 +12,11 @@ import io
 import base64
 import threading
 import time
+import signal
 
 app = Flask(__name__, static_url_path='/static')
 
-API_KEY = "eqNlTGMo0TDbaGDLJezgMF7kBE177FpC" ##KEy 2: eqNlTGMo0TDbaGDLJezgMF7kBE177FpC Key3: DZoGAkP2sIlAAqfeEltC1WfA2t441WZX
+API_KEY = "eqNlTGMo0TDbaGDLJezgMF7kBE177FpC"
 BASE_URL = "https://api.tomtom.com/traffic/services/4/flowSegmentData/absolute/10/json"
 
 LOCATIONS = [
@@ -36,20 +37,25 @@ K_JAM = 150
 V_CRITICAL = 30
 ALPHA = 0.1
 
+MAX_ROWS = 1440  # Simpan data 24 jam (60 menit * 24 jam)
 traffic_data = pd.DataFrame(columns=["Time", "Location", "Traffic Volume"])
+
+stop_event = threading.Event()
 
 def fetch_traffic_data():
     """Fetches traffic data every minute."""
     global traffic_data
 
-    while True:
+    session = requests.Session()  # Gunakan session untuk mengurangi overhead
+
+    while not stop_event.is_set():
         current_time = datetime.datetime.now() + datetime.timedelta(hours=7)
         formatted_time = current_time.strftime("%Y-%m-%d %H:%M:%S")
 
         new_data = []
         for lat, lon in LOCATIONS:
             params = {"key": API_KEY, "point": f"{lat},{lon}", "unit": "KMPH"}
-            response = requests.get(BASE_URL, params=params)
+            response = session.get(BASE_URL, params=params)
 
             if response.status_code == 200:
                 data = response.json()
@@ -66,7 +72,7 @@ def fetch_traffic_data():
 
         if new_data:
             new_df = pd.DataFrame(new_data)
-            traffic_data = pd.concat([traffic_data, new_df], ignore_index=True)
+            traffic_data = pd.concat([traffic_data, new_df], ignore_index=True).tail(MAX_ROWS)  # Batasi ukuran data
             traffic_data.to_csv("monas_traffic_volume.csv", index=False)
 
         time.sleep(60)
@@ -100,10 +106,9 @@ def plot_current_traffic():
 
     img = io.BytesIO()
     plt.savefig(img, format='png', bbox_inches="tight")
+    plt.close('all')  # Pastikan figure dibersihkan
     img.seek(0)
-    plot_url = base64.b64encode(img.getvalue()).decode()
-    plt.close()
-    return plot_url
+    return base64.b64encode(img.getvalue()).decode()
 
 def plot_historical_traffic():
     """Generates line chart for traffic over time with formatted X-axis."""
@@ -122,8 +127,6 @@ def plot_historical_traffic():
         plt.xlabel("Time (Jakarta WIB)")
         plt.ylabel("Traffic Volume (vehicles/hour)")
         plt.xticks(rotation=45, ha="right", fontsize=10)
-
-        # Format X-axis labels as dd:MMM:yy hh:mm
         plt.gca().xaxis.set_major_formatter(plt.matplotlib.dates.DateFormatter('%d:%b:%y %H:%M'))
 
         plt.grid(True, linestyle="--", alpha=0.5)
@@ -133,16 +136,15 @@ def plot_historical_traffic():
 
     img = io.BytesIO()
     plt.savefig(img, format='png', bbox_inches="tight")
+    plt.close('all')  # Pastikan figure dibersihkan
     img.seek(0)
-    plot_url = base64.b64encode(img.getvalue()).decode()
-    plt.close()
-    return plot_url
+    return base64.b64encode(img.getvalue()).decode()
 
 def simulate_traffic_logistic_model():
     """Simulates traffic volume using the logistic model."""
-    speeds = np.linspace(0, 100, 100)  # Speed from 0 to 100 km/h
-    densities = K_JAM / (1 + np.exp(ALPHA * (speeds - V_CRITICAL)))  # Density using logistic model
-    volumes = densities * speeds  # Traffic volume (flow)
+    speeds = np.linspace(0, 100, 100)
+    densities = K_JAM / (1 + np.exp(ALPHA * (speeds - V_CRITICAL)))
+    volumes = densities * speeds
 
     plt.figure(figsize=(10, 5))
     plt.plot(speeds, volumes, label="Traffic Volume", color="b")
@@ -155,10 +157,9 @@ def simulate_traffic_logistic_model():
 
     img = io.BytesIO()
     plt.savefig(img, format='png', bbox_inches="tight")
+    plt.close('all')  # Pastikan figure dibersihkan
     img.seek(0)
-    plot_url = base64.b64encode(img.getvalue()).decode()
-    plt.close()
-    return plot_url
+    return base64.b64encode(img.getvalue()).decode()
 
 @app.route('/')
 def index():
@@ -173,7 +174,18 @@ def get_data():
     """Returns traffic data in JSON format."""
     return jsonify(traffic_data.to_dict(orient="records"))
 
-threading.Thread(target=fetch_traffic_data, daemon=True).start()
+# Mulai thread untuk fetching data
+thread = threading.Thread(target=fetch_traffic_data, daemon=True)
+thread.start()
+
+def handle_shutdown(signum, frame):
+    """Handles graceful shutdown."""
+    stop_event.set()
+    thread.join()  # Tunggu thread selesai sebelum keluar
+    print("Shutting down gracefully...")
+
+signal.signal(signal.SIGINT, handle_shutdown)
+signal.signal(signal.SIGTERM, handle_shutdown)
 
 if __name__ == '__main__':
     app.run(debug=True, host="0.0.0.0", port=80)
